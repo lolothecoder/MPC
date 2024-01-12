@@ -48,17 +48,11 @@ classdef NmpcControl < handle
             ubu = inf(nu, 1);
             lbu = -inf(nu, 1);
             
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-             Inf_sym = 10^10;
-            
-            %Overwriting Bound Values
-            for i = 1:nx 
-                ubx(i,1) =  Inf_sym;
-                lbx(i,1) = -Inf_sym;
-            end
-            
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
+            
+            %discretization of the model
             f_discrete = @(x,u) RK4(x,u,rocket.Ts,@rocket.f);
+            
             % Cost
             cost = 0;
             
@@ -72,100 +66,71 @@ classdef NmpcControl < handle
             % lbx, ubx, lbu, ubu defined above
             
             %Bounds on the input
-            ubu(1,1) = 0.26;
-            lbu(1,1) = -0.26;
+            ubu(1) = 0.26;
+            lbu(1) = -0.26;
             
-            ubu(2,1) = 0.26;
-            lbu(2,1) = -0.26;
+            ubu(2) = 0.26;
+            lbu(2) = -0.26;
             
-            ubu(3,1) = 80;
-            lbu(3,1) = 50;
+            ubu(3) = 80;
+            lbu(3) = 50;
             
-            ubu(4,1) = 20;
-            lbu(4,1) = -20;
+            ubu(4) = 20;
+            lbu(4) = -20;
             
             %Bounds on the states
-            ubx(5,1) = deg2rad(75);
-            lbx(5,1) = -deg2rad(75);
-           
-            ref_vect = [0 0 0 0 0 ref_sym(4,1) 0 0 0 ...
-                ref_sym(1,1) ref_sym(2,1) ref_sym(3,1)]';
-
-            eq_constr = [eq_constr; X_sym(:,1)-...
-                f_discrete(x0_sym, zeros(nu,1))];
+            ubx(5) = deg2rad(75);
+            lbx(5) = -deg2rad(75);
             
-            %Cost parameters
-            Q = eye(nx,nx);
-            Q(1,1) = 20;
-            Q(2,2) = 20;
-            Q(3,3) = 20;
-            Q(4,4) = 1;
-            Q(5,5) = 1;
-            Q(6,6) = 350;
-            Q(7,7) = 50;
-            Q(8,8) = 50;
-            Q(9,9) = 50;
-            Q(10,10) = 350;
-            Q(11,11) = 350;
-            Q(12,12) = 6000;
-
-            R = eye(nu,nu);
-            R(1,1) = 15;
-            R(2,2) = 15;
-            R(3,3) = 0.0001;
-            R(4,4) = 0.01;
-
-            cost_X0 = (x0_sym-ref_vect)'*Q*(x0_sym-ref_vect);
-
-            cost = cost + cost_X0;
-
+            %Values for Q
+            wx = 1;
+            wy = 1;
+            wz = 1;
+            alpha = 1;
+            beta = 1;
+            gamma = 50;
+            vx = 1;
+            vy = 1;
+            vz = 1;
+            x = 20;
+            y = 20;
+            z = 30;
+            
+            %Values for R
+            delta_1 = 5;
+            delta_2 = 5;
+            P_avg = 0.0001;
+            P_diff = 0.0001;
+            
+            %Assembling Q and R
+            Q = diag([wx wy wz alpha beta gamma vx vy vz x y z]);
+            R = diag([delta_1 delta_2 P_avg P_diff]);
+            
+            %Giving the reference vector the right dimension
+            gamma_ref = ref_sym(4,1);
+            x_ref = ref_sym(1,1);
+            y_ref = ref_sym(2,1);
+            z_ref = ref_sym(3,1);
+            reference = [0 0 0 0 0 gamma_ref 0 0 0 x_ref y_ref z_ref]';
+            
+            %Initial equality constraint
+            eq_constr = X_sym(:,1)- x0_sym;
+            
+            %Loop to calculate the cost
             for i = 1:N-1
-                %Equality and Inequality Constraints update
-
-                eq_constr = [eq_constr; X_sym(:,i+1) - ...
-                    f_discrete(X_sym(:,i), U_sym(:,i))];
-
-                ineq_constr = [ineq_constr; lbu - U_sym(:,i)];
-                ineq_constr = [ineq_constr; U_sym(:,i) - ubu];
-                ineq_constr = [ineq_constr; lbx - (X_sym(:,i))];
-                ineq_constr = [ineq_constr; X_sym(:,i) - ubx];
+                
+                %Equatlity and inequality constraints
+                eq_constr = [eq_constr; X_sym(:,i+1) - f_discrete(X_sym(:,i), U_sym(:,i))];
+                ineq_constr = [ineq_constr; U_sym(:,i) - ubu ; lbu - U_sym(:,i)];
+                ineq_constr = [ineq_constr; X_sym(5,i) - ubx(5); lbx(5)-X_sym(5,i)];
 
                 %Cost calculation
-                cost_X=(X_sym(:,i)-ref_vect)'*Q*(X_sym(:,i)-ref_vect) + ...
-                    (U_sym(:,i))'*R*(U_sym(:,i));
-
-                cost = cost + cost_X;
+                cost= cost +(X_sym(:,i)-reference)'*Q*(X_sym(:,i)-reference) + (U_sym(:,i))'*R*(U_sym(:,i));
             end
-
-            %Final Inequality Cpnstraint
-            ineq_constr = [ineq_constr; lbx - (X_sym(:,N))];
-            ineq_constr = [ineq_constr; X_sym(:,N) - ubx];
             
-             %Retrieving Linear parameters
-            [xs, us] = rocket.trim ();
-            setup = rocket.linearize (xs,us);
-            setup = c2d(setup, rocket.Ts);
+            %Terminal cost
+            cost = cost + (X_sym(:,N)-reference)'*Q*(X_sym(:,N)-reference);
             
-            %Terminal Cost
-            MPT = LTISystem('A', setup.A, 'B', setup.B);
-            MPT.x.min(5) = lbx(5,1);
-            MPT.x.max(5) = ubx(5,1);
-            MPT.u.min(1) = lbu(1,1);
-            MPT.u.min(2) = lbu(2,1);
-            MPT.u.min(3) = lbu(3,1);
-            MPT.u.min(4) = lbu(4,1);
-            MPT.u.max(1) = ubu(1,1);
-            MPT.u.max(2) = ubu(2,1);
-            MPT.u.max(3) = ubu(3,1);
-            MPT.u.max(4) = ubu(4,1);
-            MPT.x.penalty = QuadFunction(Q);
-            MPT.u.penalty = QuadFunction(R);
-
-            Q_term = MPT.LQRPenalty.weight;
-
-            cost_XN = (X_sym(:,N)-ref_vect)'*Q_term*(X_sym(:,N)-ref_vect);
-
-            cost = cost + cost_XN;
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
@@ -209,8 +174,10 @@ classdef NmpcControl < handle
             obj.expected_delay = expected_delay;
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
-
-            u_init = zeros(4, 1); % Replace this by a better initialization
+            
+            % Get u_init from steady-state 
+            [xs, us] = rocket.trim();
+            u_init = us; % Replace this by a better initialization
             
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -227,8 +194,14 @@ classdef NmpcControl < handle
             % Delay compensation: Predict x0 delay timesteps later.
             % Simulate x_ for 'delay' timesteps
             x_ = x0;
-            % ...
-       
+            
+            h = obj.rocket.Ts;
+            %Applying euleur integration for delay timesteps
+            for i=1:delay
+               f_function = obj.rocket.f(x_,mem_u(:,i));
+               x_ = x_ + h * f_function;
+            end
+            
             x0 = x_;
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -245,7 +218,8 @@ classdef NmpcControl < handle
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             % Delay compensation: Save current u
             if obj.expected_delay > 0
-               % obj.mem_u = ...
+               obj.mem_u = mem_u(:,2:end);
+               obj.mem_u = [obj.mem_u u];
             end
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

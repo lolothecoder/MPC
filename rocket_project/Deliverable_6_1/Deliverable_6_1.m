@@ -15,20 +15,20 @@ nmpc = NmpcControl(rocket, H);
 %ref = @(t_, x_) ref_TVC(t_);
 
 % MPC reference with specified maximum roll = 50 deg
-roll_max = deg2rad(50);
-ref = @(t_, x_) ref_TVC(t_, roll_max);
+ roll_max = deg2rad(50);
+ ref = @(t_, x_) ref_TVC(t_, roll_max);
 
 % Evaluate once and plot optimal open−loop trajectory,
 % pad last input to get consistent size with time and state
 x0 = zeros(12,1); %Initial state
-ref0 = [2 2 2 deg2rad(40)]'; % Reference Tracking for open loop simulaton
+ref0 = [2 2 2 deg2rad(40)]'; % open loop tracking reference
 
-%x0 = [deg2rad([2 -2 0, -2 2 0]), 0 0 0, 0 0 0]';
-
+%Open loop simulation
 [u, T_opt, X_opt, U_opt] = nmpc.get_u(x0, ref0);
 U_opt(:,end+1) = nan;
 ph = rocket.plotvis(T_opt, X_opt, U_opt, ref0); 
 
+%Closed loop simulation
 Tf = 30;
 [T, X, U, Ref] = rocket.simulate(x0, Tf, @nmpc.get_u, ref);
 rocket.anim_rate = 10;
