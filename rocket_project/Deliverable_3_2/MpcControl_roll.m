@@ -41,12 +41,11 @@ classdef MpcControl_roll < MpcControlBase
             D = mpc.D;
 
             %Cost matrices
-            R = 4;
-            Q = [25,0;0,50];
+            R = 0.01;
+            Q = [1,0;0,10];
 
             % Constraints
             % u in U = { u | Mu <= m }
-            %M = [1;1]; m = [20;0];
             M = [1;-1]; m = [20;20];
             % x in X = { x | Fx <= f }
             F = [0,0]; f = 0;
@@ -56,34 +55,34 @@ classdef MpcControl_roll < MpcControlBase
             [K,Qf,~] = dlqr(A,B,Q,R);
             K = -K;
 
+            %Terminal set from 3.1 no longer needed
             %Compute maximum invariant set
-            Xf = polytope([F;M*K],[f;m]);
-            Acl = A+B*K;
-            while 1
-                prevXf = Xf;
-                [T,t] = double(Xf);
-                preXf = polytope(T*Acl,t);
-                Xf = intersect(Xf, preXf);
-                if isequal(prevXf, Xf)
-                    break
-                end
-            end
-            [Ff,ff] = double(Xf);
+            % Xf = polytope([F;M*K],[f;m]);
+            % Acl = A+B*K;
+            % while 1
+            %     prevXf = Xf;
+            %     [T,t] = double(Xf);
+            %     preXf = polytope(T*Acl,t);
+            %     Xf = intersect(Xf, preXf);
+            %     if isequal(prevXf, Xf)
+            %         break
+            %     end
+            % end
+            % [Ff,ff] = double(Xf);
             
             % SET THE PROBLEM CONSTRAINTS con AND THE OBJECTIVE obj HERE
-            %obj = 0;
-            %con = [];
+            obj = 0;
+            con = [];
 
             con = (X(:,2) == A*X(:,1) + B*U(:,1)) + (M*U(:,1) <= m);
             obj = (U(:,1)-u_ref)'*R*(U(:,1)-u_ref);
             for i = 2:N-1
                 con = con + (X(:,i+1) == A*X(:,i) + B*U(:,i));
-                %con = con + (F*X(:,i) <= f) + (M*U(:,i) <= m);
                 con = con + (M*U(:,i) <= m);
                 obj = obj + (X(:,i)-x_ref)'*Q*(X(:,i)-x_ref) + ...
                         (U(:,i)-u_ref)'*R*(U(:,i)-u_ref);
             end
-            con = con + (Ff*X(:,N) <= ff);
+            %con = con + (Ff*X(:,N) <= ff+eps);
             obj = obj + (X(:,N)-x_ref)'*Qf*(X(:,N)-x_ref);
             
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
@@ -123,9 +122,7 @@ classdef MpcControl_roll < MpcControlBase
             % u in U = { u | Mu <= m }
             M = [1;-1]; m = [20;20];
 
-            con = [M*us<=m,...
-                   xs == mpc.A*xs + mpc.B*us,...
-                   ref == mpc.C*xs + mpc.D];
+            con = [M*us<=m, xs == mpc.A*xs + mpc.B*us, ref == mpc.C*xs + mpc.D];
             obj = power(us,2);
 
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE

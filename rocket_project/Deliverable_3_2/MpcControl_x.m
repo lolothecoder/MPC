@@ -43,7 +43,7 @@ classdef MpcControl_x < MpcControlBase
             
             %Cost matrices
             R = 1;
-            Q = diag([20,10,2,2]);
+            Q = diag([10,1,1,10]);
 
             %Constraints
             %u in U = {u|Mu<=m}
@@ -55,23 +55,24 @@ classdef MpcControl_x < MpcControlBase
             [K,Qf,~] = dlqr(A,B,Q,R);
             K = -K;
 
+            %Terminal set from 3.1 no longer needed
             %Compute maximum invariant set
-            Xf = polytope([F;M*K],[f;m]);
-            Acl = A+B*K;
-            while 1
-                prevXf = Xf;
-                [T,t] = double(Xf);
-                preXf = polytope(T*Acl,t);
-                Xf = intersect(Xf, preXf);
-                if isequal(prevXf, Xf)
-                    break
-                end
-            end
-            [Ff,ff] = double(Xf);
-            
+            % Xf = polytope([F;M*K],[f;m]);
+            % Acl = A+B*K;
+            % while 1
+            %     prevXf = Xf;
+            %     [T,t] = double(Xf);
+            %     preXf = polytope(T*Acl,t);
+            %     Xf = intersect(Xf, preXf);
+            %     if isequal(prevXf, Xf)
+            %         break
+            %     end
+            % end
+            % [Ff,ff] = double(Xf);
+
             % SET THE PROBLEM CONSTRAINTS con AND THE OBJECTIVE obj HERE
-            %obj = 0;
-            %con = [];
+            obj = 0;
+            con = [];
 
             con = (X(:,2) == A*X(:,1) + B*U(:,1)) + (M*U(:,1) <= m);
             obj = (U(:,1)-u_ref)'*R*(U(:,1)-u_ref);
@@ -81,7 +82,7 @@ classdef MpcControl_x < MpcControlBase
                 obj = obj + (X(:,i)-x_ref)'*Q*(X(:,i)-x_ref)+ ...
                         (U(:,i)-u_ref)'*R*(U(:,i)-u_ref);
             end
-            con = con + (Ff*X(:,N) <= ff);
+            %con = con + (Ff*X(:,N) <= ff);
             obj = obj + (X(:,N)-x_ref)'*Qf*(X(:,N)-x_ref);
 
             
@@ -116,18 +117,16 @@ classdef MpcControl_x < MpcControlBase
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             % You can use the matrices mpc.A, mpc.B, mpc.C and mpc.D
-            %obj = 0;
-            %con = [xs == 0, us == 0];
-            
+            obj = 0;
+            con = [xs == 0, us == 0];
+
             %Constraints
             %u in U = {u|Mu<=m}
             M = [1;-1]; m = [deg2rad(15);deg2rad(15)];
             %x in X = {x|Fx<=f}
             F = [0,1,0,0;0,-1,0,0]; f = [deg2rad(10);deg2rad(10)];
 
-            con = [M*us<=m, F*xs<=f,...
-                    xs == mpc.A*xs + mpc.B*us,...
-                    ref == mpc.C*xs + mpc.D];
+            con = [M*us<=m, F*xs<=f, xs == mpc.A*xs + mpc.B*us, ref == mpc.C*xs + mpc.D];
             obj = power(us,2);
             
             

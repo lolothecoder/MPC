@@ -43,7 +43,7 @@ classdef MpcControl_y < MpcControlBase
             
            %Cost matrices
             R = 1;
-            Q = diag([20,10,2,10]);
+            Q = diag([10,1,1,10]);
 
             %Constraints
             %u in U = {u|Mu<=m}
@@ -66,6 +66,9 @@ classdef MpcControl_y < MpcControlBase
                 if isequal(prevXf, Xf)
                     break
                 end
+                %Xf.projection(1:2).plot();
+                %Xf.projection(2:3).plot();
+                %Xf.projection(3:4).plot();
             end
             [Ff,ff] = double(Xf);
             

@@ -56,12 +56,14 @@ classdef MpcControl_z < MpcControlBase
             D = mpc.D;
             
             %Cost matrices
-            R = 0.1;
-            Q = [1,0;0,10];
+            R = 0.01;
+            %Q = 10*eye(2);
+            Q = [50,0;0,250];
             
             % Constraints
             % u in U = { u | Mu <= m }
-            M = [1;-1]; m = [80-56.6667;56.6667-50];
+            eps = 3;
+            M = [1;-1]; m = [80-56.6667+eps;56.6667-50+eps];
 
             % x in X = { x | Fx <= f }
             F = [0,0]; f = 0;
@@ -88,15 +90,16 @@ classdef MpcControl_z < MpcControlBase
             % SET THE PROBLEM CONSTRAINTS con AND THE OBJECTIVE obj HERE
             obj = 0;
             con = [];
+            lambda = 4;
             
 
             con = (X(:,2) == A*(X(:,1)) + B*(U(:,1))) + (M*U(:,1) <= m);
-            obj = (U(:,1)-u_ref)'*R*(U(:,1)-u_ref);
+            obj = (U(:,1)-u_ref)'*R*(U(:,1)-u_ref)+lambda*eps;
             for i = 2:N-1
                 con = con + (X(:,i+1) == A*(X(:,i)) + B*(U(:,i)));
                 con = con + (M*(U(:,i)) <= m);
                 obj = obj + (X(:,i)-x_ref)'*Q*(X(:,i)-x_ref) + ...
-                    (U(:,i)-u_ref)'*R*(U(:,i)-u_ref);
+                    (U(:,i)-u_ref)'*R*(U(:,i)-u_ref)+lambda*eps;
             end
             %con = con + (Ff*X(:,N) <= ff);
             obj = obj + (X(:,N)-x_ref)'*Qf*(X(:,N)-x_ref);
@@ -143,7 +146,6 @@ classdef MpcControl_z < MpcControlBase
             % Constraints
             % u in U = { u | Mu <= m }
             M = [1;-1]; m = [80-56.6667;56.6667-50];
-            
 
             con = [M*us<=m, xs == mpc.A*xs + mpc.B*us, ref == mpc.C*xs + mpc.D];
             obj = power(us,2);

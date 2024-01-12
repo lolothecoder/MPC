@@ -1,4 +1,4 @@
-classdef MpcControl_y < MpcControlBase
+classdef MpcControl_x < MpcControlBase
     
     methods
         % Design a YALMIP optimizer object that takes a steady-state state
@@ -34,7 +34,7 @@ classdef MpcControl_y < MpcControlBase
             
             % NOTE: The matrices mpc.A, mpc.B, mpc.C and mpc.D are
             %       the DISCRETE-TIME MODEL of your system
-
+            
             %A,B,C,D matrices
             A = mpc.A;
             B = mpc.B;
@@ -43,7 +43,7 @@ classdef MpcControl_y < MpcControlBase
             
             %Cost matrices
             R = 1;
-            Q = diag([10,1,1,10]);
+            Q = diag([35,1,1,10]);
 
             %Constraints
             %u in U = {u|Mu<=m}
@@ -55,20 +55,19 @@ classdef MpcControl_y < MpcControlBase
             [K,Qf,~] = dlqr(A,B,Q,R);
             K = -K;
 
-            %Terminal set from 3.1 no longer needed
             %Compute maximum invariant set
-            % Xf = polytope([F;M*K],[f;m]);
-            % Acl = A+B*K;
-            % while 1
-            %     prevXf = Xf;
-            %     [T,t] = double(Xf);
-            %     preXf = polytope(T*Acl,t);
-            %     Xf = intersect(Xf, preXf);
-            %     if isequal(prevXf, Xf)
-            %         break
-            %     end
-            % end
-            % [Ff,ff] = double(Xf);
+            Xf = polytope([F;M*K],[f;m]);
+            Acl = A+B*K;
+            while 1
+                prevXf = Xf;
+                [T,t] = double(Xf);
+                preXf = polytope(T*Acl,t);
+                Xf = intersect(Xf, preXf);
+                if isequal(prevXf, Xf)
+                    break
+                end
+            end
+            [Ff,ff] = double(Xf);
             
             % SET THE PROBLEM CONSTRAINTS con AND THE OBJECTIVE obj HERE
             obj = 0;
@@ -79,11 +78,12 @@ classdef MpcControl_y < MpcControlBase
             for i = 2:N-1
                 con = con + (X(:,i+1) == A*X(:,i) + B*U(:,i));
                 con = con + (F*X(:,i) <= f) + (M*U(:,i) <= m);
-                obj = obj + (X(:,i)-x_ref)'*Q*(X(:,i)-x_ref) + ...
+                obj = obj + (X(:,i)-x_ref)'*Q*(X(:,i)-x_ref)+ ...
                         (U(:,i)-u_ref)'*R*(U(:,i)-u_ref);
             end
-            %con = con + (Ff*X(:,N) <= ff);
+            con = con + (Ff*X(:,N) <= ff);
             obj = obj + (X(:,N)-x_ref)'*Qf*(X(:,N)-x_ref);
+
             
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -116,17 +116,19 @@ classdef MpcControl_y < MpcControlBase
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             % You can use the matrices mpc.A, mpc.B, mpc.C and mpc.D
-            % obj = 0;
-            % con = [xs == 0, us == 0];
+            obj = 0;
+            con = [xs == 0, us == 0];
 
             %Constraints
             %u in U = {u|Mu<=m}
             M = [1;-1]; m = [deg2rad(15);deg2rad(15)];
             %x in X = {x|Fx<=f}
             F = [0,1,0,0;0,-1,0,0]; f = [deg2rad(10);deg2rad(10)];
+            %eps = 5;
 
             con = [M*us<=m, F*xs<=f, xs == mpc.A*xs + mpc.B*us, ref == mpc.C*xs + mpc.D];
             obj = power(us,2);
+            
             
             % YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE YOUR CODE HERE
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

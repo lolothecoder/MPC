@@ -41,12 +41,11 @@ classdef MpcControl_roll < MpcControlBase
             D = mpc.D;
 
             %Cost matrices
-            R = 4;
-            Q = [25,0;0,50];
+            R = 0.01;
+            Q = [1,0;0,10];
 
             % Constraints
             % u in U = { u | Mu <= m }
-            %M = [1;1]; m = [20;0];
             M = [1;-1]; m = [20;20];
             % x in X = { x | Fx <= f }
             F = [0,0]; f = 0;
@@ -66,6 +65,7 @@ classdef MpcControl_roll < MpcControlBase
                 if isequal(prevXf, Xf)
                     break
                 end
+                % Xf.projection(1:2).plot();
             end
             [Ff,ff] = double(Xf);
             
@@ -77,7 +77,6 @@ classdef MpcControl_roll < MpcControlBase
             obj = U(:,1)'*R*U(:,1);
             for i = 2:N-1
                 con = con + (X(:,i+1) == A*X(:,i) + B*U(:,i));
-                %con = con + (F*X(:,i) <= f) + (M*U(:,i) <= m);
                 con = con + (M*U(:,i) <= m);
                 obj = obj + X(:,i)'*Q*X(:,i) + U(:,i)'*R*U(:,i);
             end

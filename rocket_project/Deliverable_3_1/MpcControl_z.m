@@ -56,13 +56,13 @@ classdef MpcControl_z < MpcControlBase
             D = mpc.D;
             
             %Cost matrices
-            R = 0.0005;
-            %Q = 10*eye(2);
-            Q = [40,0;0,40];
+            R = 0.1;
+            Q = [1,0;0,10];
             
             % Constraints
             % u in U = { u | Mu <= m }
-            M = [1;-1]; m = [20;5];
+            %To take into account the trim point
+            M = [1;-1]; m = [80-56.6667;56.6667-50];
             % x in X = { x | Fx <= f }
             F = [0,0]; f = 0;
 
@@ -81,6 +81,7 @@ classdef MpcControl_z < MpcControlBase
                 if isequal(prevXf, Xf)
                     break
                 end
+                %Xf.projection(1:2).plot();
             end
             [Ff,ff] = double(Xf);
             
@@ -92,7 +93,6 @@ classdef MpcControl_z < MpcControlBase
             obj = U(:,1)'*R*U(:,1);
             for i = 2:N-1
                 con = con + (X(:,i+1) == A*X(:,i) + B*U(:,i));
-                % con = con + (F*X(:,i) <= f) + (M*U(:,i) <= m);
                 con = con + (M*U(:,i) <= m);
                 obj = obj + X(:,i)'*Q*X(:,i) + U(:,i)'*R*U(:,i);
             end
